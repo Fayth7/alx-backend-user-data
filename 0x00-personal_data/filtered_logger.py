@@ -12,6 +12,16 @@ import mysql.connector
 PII_FIELDS = ("name", "email", "phone", "ssn", "password")
 
 
+class RedactingFormatter(logging.Formatter):
+    def __init__(self, fields):
+        super().__init__()
+        self.fields = fields
+
+    def format(self, record):
+        message = super().format(record)
+        return filter_datum(self.fields, 'xxx', message, ';')
+
+
 def filter_datum(fields: List[str], redaction: str,
                  message: str, separator: str) -> str:
     """ Returns a log message obfuscated """
