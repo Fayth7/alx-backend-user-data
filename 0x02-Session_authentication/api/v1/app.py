@@ -6,6 +6,7 @@ from os import getenv
 from api.v1.views import app_views
 from flask import Flask, jsonify, abort, request
 from flask_cors import CORS, cross_origin
+import importlib
 
 
 app = Flask(__name__)
@@ -26,7 +27,8 @@ auth_type = getenv("AUTH_TYPE", 'default_auth')
 auth_class = AUTH_TYPE_MAP.get(auth_type, AUTH_TYPE_MAP['default_auth'])
 
 try:
-    auth = eval(auth_class)()
+    auth_module = importlib.import_module(auth_class)
+    auth = getattr(auth_module, auth_class.split('.')[-1])()
 except ImportError:
     raise ImportError(f"Error importing {auth_class}")
 
