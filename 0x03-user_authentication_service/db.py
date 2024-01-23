@@ -1,77 +1,67 @@
 #!/usr/bin/env python3
-""" Database for ORM """
-
+""" DB module to save and update databse
+"""
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm.session import Session
 from sqlalchemy.exc import InvalidRequestError
 from sqlalchemy.orm.exc import NoResultFound
-from typing import TypeVar
+
 from user import Base, User
 
 
 class DB:
-    """DB Class for Object Relational Mapping"""
+    """DB class for object relational mapping
+    """
 
-    def __init__(self, database_url="sqlite:///my_database.db"):
-        """Constructor Method"""
-        self._engine = create_engine(database_url, echo=False)
+    def __init__(self) -> None:
+        """Initialize a new DB instance
+        """
+        self._engine = create_engine("sqlite:///a.db", echo=True)
         Base.metadata.drop_all(self._engine)
         Base.metadata.create_all(self._engine)
         self.__session = None
 
     @property
-    def _session(self):
-        """Session Getter Method"""
+    def _session(self) -> Session:
+        """Memoized session object
+        """
         if self.__session is None:
             DBSession = sessionmaker(bind=self._engine)
             self.__session = DBSession()
         return self.__session
 
     def add_user(self, email: str, hashed_password: str) -> User:
-        """Adds user to the database
-        Return: User Object
+        """Add a user to the database
         """
         user = User(email=email, hashed_password=hashed_password)
-        with self._session as session:
-            session.add(user)
-            session.commit()
-
+        self._session.add(user)
+        self._session.commit()
         return user
 
     def find_user_by(self, **kwargs) -> User:
-        """Finds user by keyword args
-        Return: First row found in the users table as filtered by kwargs
+        """Find a user by arbitrary keyword arguments
         """
-        if not kwargs:
-            raise InvalidRequestError("No filter criteria provided")
-
-        column_names = User.__table__.columns.keys()
-        for key in kwargs.keys():
-            if key not in column_names:
-                raise InvalidRequestError(f"Invalid filter key: {key}")
-
-        with self._session as session:
-            user = session.query(User).filter_by(**kwargs).first()
-
-        if user is None:
-            raise NoResultFound("No user found with the specified criteria")
-
-        return user
+        try:
+            user = self._session.query(User).filter_by(**kwargs).first()
+            if user is None:
+                raise NoResultFound
+            return user
+        except InvalidRequestError:
+            raise InvalidRequestError
 
     def update_user(self, user_id: int, **kwargs) -> None:
         """Update user's attributes
-        Returns: None
         """
         user = self.find_user_by(id=user_id)
 
         column_names = User.__table__.columns.keys()
         for key in kwargs.keys():
             if key not in column_names:
-                raise ValueError(f"Invalid attribute key: {key}")
+                raise ValueError(f"Invalid attribute: {key}")
 
         for key, value in kwargs.items():
             setattr(user, key, value)
 
-        with self._session as session:
-            session.commit()
+        self._session.commit()
